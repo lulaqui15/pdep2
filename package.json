@@ -1,0 +1,19 @@
+{
+  "name": "tp-3",
+  "version": "1.0.0",
+  "description": "Sistema de gestión de tareas con OOP en TypeScript",
+  "main": "dist/src/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/src/main.js",
+    "dev": "tsc && node dist/src/main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["tareas", "typescript", "oop"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.9.3"
+  }
+}
