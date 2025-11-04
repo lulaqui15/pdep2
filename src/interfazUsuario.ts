@@ -1,21 +1,35 @@
 // =======================
-// INTERFAZ DE USUARIO 
+// INTERFAZ DE USUARIO (Adaptada a Funcional)
 // =======================
 
 import { input } from '../lib/nodeImperativo';
-import { GestorTareas } from './gestorTareas';
-import { 
-  TareaBase, 
-  TareaSimple, 
-  TareaConFechaLimite, 
-  TareaRecurrente,
+import {
+  EstadoGestor,
+  agregarTarea,
+  actualizarTarea,
+  obtenerTarea,
+  obtenerTodas,
+  filtrarPorEstado,
+  buscarPorTitulo,
+  calcularEstadisticas
+} from './gestorTareas';
+import {
+  Tarea,
   EstadoTarea,
   DificultadTarea,
-  PrioridadTarea 
+  crearTarea,
+  actualizarTitulo,
+  actualizarDescripcion,
+  actualizarEstado,
+  actualizarDificultad,
+  estadoATexto,
+  dificultadATexto,
+  formatearFecha
 } from './types';
 
 export class InterfazUsuario {
-  constructor(private gestor: GestorTareas) {}
+  // Ahora solo guarda referencia al estado, no lo modifica directamente
+  constructor(private getEstado: () => EstadoGestor, private setEstado: (e: EstadoGestor) => void) {}
 
   // ==================
   // MENÚ PRINCIPAL
@@ -32,7 +46,7 @@ export class InterfazUsuario {
   }
 
   // ==================
-  // MENÚ VER TAREAS
+  // VER TAREAS
   // ==================
   async verTareas(): Promise<void> {
     let opcion: string;
@@ -52,23 +66,18 @@ export class InterfazUsuario {
 
       switch (opcion) {
         case "1":
-          console.log("TODAS LAS TAREAS:\n");
           await this.mostrarTareasPorEstado(0);
           break;
         case "2":
-          console.log("TAREAS PENDIENTES:\n");
           await this.mostrarTareasPorEstado(EstadoTarea.PENDIENTE);
           break;
         case "3":
-          console.log("TAREAS EN CURSO:\n");
           await this.mostrarTareasPorEstado(EstadoTarea.EN_CURSO);
           break;
         case "4":
-          console.log("TAREAS TERMINADAS:\n");
           await this.mostrarTareasPorEstado(EstadoTarea.TERMINADA);
           break;
         case "5":
-          console.log("TAREAS CANCELADAS:\n");
           await this.mostrarTareasPorEstado(EstadoTarea.CANCELADA);
           break;
         case "0":
@@ -82,16 +91,15 @@ export class InterfazUsuario {
   }
 
   // ==================
-  // MOSTRAR TAREAS POR ESTADO
+  // MOSTRAR TAREAS POR ESTADO (usa funciones puras)
   // ==================
   async mostrarTareasPorEstado(estado: number): Promise<void> {
-    let tareas: TareaBase[];
-
-    if (estado === 0) {
-      tareas = this.gestor.obtenerTodasLasTareas();
-    } else {
-      tareas = this.gestor.filtrarPorEstado(estado);
-    }
+    const gestor = this.getEstado();
+    
+    // Usar funciones puras para obtener tareas
+    const tareas = estado === 0 
+      ? obtenerTodas(gestor)
+      : filtrarPorEstado(gestor, estado);
 
     if (tareas.length === 0) {
       console.log("No se encontraron tareas!");
@@ -99,7 +107,7 @@ export class InterfazUsuario {
       return;
     }
 
-    // Mostrar lista de tareas
+    // Mostrar con map (función pura)
     tareas.forEach((tarea, index) => {
       console.log(`[${index + 1}] ${tarea.titulo}`);
     });
@@ -111,12 +119,15 @@ export class InterfazUsuario {
 
     if (seleccion > 0 && seleccion <= tareas.length) {
       const tareaSeleccionada = tareas[seleccion - 1];
-      const indiceReal = this.gestor.obtenerTodas().indexOf(tareaSeleccionada);
+      const indiceReal = gestor.tareas.indexOf(tareaSeleccionada);
       await this.mostrarDetallesTarea(indiceReal);
     }
   }
+
   async mostrarDetallesTarea(indice: number): Promise<void> {
-    const tarea = this.gestor.obtenerTarea(indice);
+    const gestor = this.getEstado();
+    const tarea = obtenerTarea(gestor, indice);
+    
     if (!tarea) {
       console.log("\nNo se encontraron detalles");
       await input("\nPresione Enter para continuar...");
@@ -126,17 +137,11 @@ export class InterfazUsuario {
     console.log("\n---------- DETALLES DE LA TAREA ----------");
     console.log(`Titulo:                    ${tarea.titulo}`);
     console.log(`Descripcion:               ${tarea.descripcion}`);
-    console.log(`Estado:                    ${this.obtenerTextoEstado(tarea.estado)}`);
-    console.log(`Fecha de creacion:         ${this.formatearFecha(tarea.fechadecreacion)}`);
-    
-    // Mostrar información específica según el tipo de tarea
-    if (tarea instanceof TareaSimple) {
-      console.log(`Dificultad:              ${tarea.obtenerTextoDificultadPublico()}`);
-    }
-
+    console.log(`Estado:                    ${estadoATexto(tarea.estado)}`);
+    console.log(`Fecha de creacion:         ${formatearFecha(tarea.fechaCreacion)}`);
+    console.log(`Dificultad:                ${dificultadATexto(tarea.dificultad)}`);
     console.log("------------------------------------------");
 
-    // Opción Editar
     console.log("\n.Desea editar esta tarea?");
     const opcionEditar = await input("[E] Editar - [0] Volver: ");
 
@@ -147,39 +152,38 @@ export class InterfazUsuario {
   }
 
   // ==================
-  // EDITAR TAREA
+  // EDITAR TAREA (usa funciones puras)
   // ==================
   async editarTarea(indice: number): Promise<void> {
-    const tarea = this.gestor.obtenerTarea(indice);
+    const gestor = this.getEstado();
+    let tarea = obtenerTarea(gestor, indice);
+    
     if (!tarea) return;
 
     console.log("\n=== EDITAR TAREA ===\n");
 
-    // EDITAR TÍTULO
+    // EDITAR TÍTULO (función pura)
     console.log(`Titulo: ${tarea.titulo}`);
     const editarTitulo = await input("Desea editar el titulo? [1] Si - [Enter] No: ");
     
     if (editarTitulo === "1") {
       const nuevoTitulo = await input("Nuevo titulo: ");
-      try {
-        tarea.titulo = nuevoTitulo;
-        console.log(".Titulo actualizado");
-      } catch (error) {
-        console.log(`Error: ${error}`);
-      }
+      tarea = actualizarTitulo(tarea, nuevoTitulo);
+      console.log(".Titulo actualizado");
     }
 
-    // EDITAR DESCRIPCIÓN
+    // EDITAR DESCRIPCIÓN (función pura)
     console.log(`\n\nDescripcion: ${tarea.descripcion}`);
     const editarDesc = await input("Desea editar la descripcion? [1] Si - [Enter] No: ");
     
     if (editarDesc === "1") {
-      tarea.descripcion = await input("Nueva descripcion: ");
+      const nuevaDesc = await input("Nueva descripcion: ");
+      tarea = actualizarDescripcion(tarea, nuevaDesc);
       console.log(".Descripcion actualizada");
     }
 
-    // EDITAR ESTADO
-    console.log(`\n\nEstado: ${this.obtenerTextoEstado(tarea.estado)}`);
+    // EDITAR ESTADO (función pura)
+    console.log(`\n\nEstado: ${estadoATexto(tarea.estado)}`);
     const editarEstado = await input("Desea editar el estado? [1] Si - [Enter] No: ");
     
     if (editarEstado === "1") {
@@ -189,7 +193,7 @@ export class InterfazUsuario {
         nuevaOpcion = parseInt(await input("Opcion: "));
         
         if (nuevaOpcion >= 1 && nuevaOpcion <= 4) {
-          tarea.estado = nuevaOpcion;
+          tarea = actualizarEstado(tarea, nuevaOpcion);
           console.log(".Estado actualizado");
           break;
         } else {
@@ -198,42 +202,44 @@ export class InterfazUsuario {
       } while (true);
     }
 
-    // EDITAR DIFICULTAD (solo para TareaSimple)
-    if (tarea instanceof TareaSimple) {
-      console.log(`\n\nDificultad: ${tarea.obtenerTextoDificultadPublico()}`);
-      const editarDif = await input("Desea editar la dificultad? [1] Si - [Enter] No: ");
-      
-      if (editarDif === "1") {
-        let nuevaOpcion: number;
-        do {
-          console.log("Nueva dificultad: [1] Dificil - [2] Medio - [3] Facil");
-          nuevaOpcion = parseInt(await input("Opcion: "));
-          
-          if (nuevaOpcion >= 1 && nuevaOpcion <= 3) {
-            tarea.dificultad = nuevaOpcion;
-            console.log(".Dificultad actualizada");
-            break;
-          } else {
-            console.log("Opcion incorrecta!");
-          }
-        } while (true);
-      }
+    // EDITAR DIFICULTAD (función pura)
+    console.log(`\n\nDificultad: ${dificultadATexto(tarea.dificultad)}`);
+    const editarDif = await input("Desea editar la dificultad? [1] Si - [Enter] No: ");
+    
+    if (editarDif === "1") {
+      let nuevaOpcion: number;
+      do {
+        console.log("Nueva dificultad: [1] Dificil - [2] Medio - [3] Facil");
+        nuevaOpcion = parseInt(await input("Opcion: "));
+        
+        if (nuevaOpcion >= 1 && nuevaOpcion <= 3) {
+          tarea = actualizarDificultad(tarea, nuevaOpcion);
+          console.log(".Dificultad actualizada");
+          break;
+        } else {
+          console.log("Opcion incorrecta!");
+        }
+      } while (true);
     }
 
     console.log("\n!!TAREA EDITADA EXITOSAMENTE!!");
-    this.gestor.actualizarTarea(indice, tarea);
+    
+    // Actualizar estado usando función pura
+    this.setEstado(actualizarTarea(gestor, indice, tarea));
+    
     await input("\nPresione Enter para continuar...");
   }
 
   // ==================
-  // BUSCAR TAREAS
+  // BUSCAR TAREAS (usa funciones puras)
   // ==================
   async buscarTareas(): Promise<void> {
     console.log("BUSCAR TAREAS..\n");
     console.log("Ingrese el titulo para buscar su tarea");
     const busqueda = await input(".Titulo: ");
 
-    const tareas = this.gestor.buscarPorTitulo(busqueda);
+    const gestor = this.getEstado();
+    const tareas = buscarPorTitulo(gestor, busqueda);
 
     if (tareas.length === 0) {
       console.log("\nNo se encontraron tareas con ese titulo.");
@@ -252,23 +258,21 @@ export class InterfazUsuario {
 
     if (seleccion > 0 && seleccion <= tareas.length) {
       const tareaSeleccionada = tareas[seleccion - 1];
-      const indiceReal = this.gestor.obtenerTodas().indexOf(tareaSeleccionada);
+      const indiceReal = gestor.tareas.indexOf(tareaSeleccionada);
       await this.mostrarDetallesTarea(indiceReal);
     }
   }
 
   // ==================
-  // AGREGAR TAREA
+  // AGREGAR TAREA (usa funciones puras)
   // ==================
   async agregarTarea(): Promise<void> {
     console.log("AGREGAR TAREA..\n");
     console.log("..Ingrese los siguientes datos...\n");
 
-    // DATOS BÁSICOS
     const titulo = await input(".Titulo: ");
     const descripcion = await input(".Descripcion: ");
 
-    // ESTADO
     let opcionEstado: number;
     do {
       console.log(".Estado: [1]Pendiente - [2]En Curso - [3]Terminada - [4]Cancelada ");
@@ -282,7 +286,6 @@ export class InterfazUsuario {
       }
     } while (true);
 
-    // DIFICULTAD
     let opcionDificultad: number;
     do {
       console.log(".Dificultad: [1]Dificil - [2]Medio - [3]Facil");
@@ -296,53 +299,33 @@ export class InterfazUsuario {
       }
     } while (true);
 
-    // Crear la tarea simple (la fecha se asigna automáticamente)
-    const nuevaTarea = new TareaSimple(titulo, descripcion, opcionEstado, opcionDificultad);
-    this.gestor.agregarTarea(nuevaTarea);
+    // Crear tarea usando función pura
+    const nuevaTarea = crearTarea(titulo, descripcion, opcionEstado, opcionDificultad);
+    
+    // Agregar usando función pura (retorna nuevo estado)
+    const gestor = this.getEstado();
+    this.setEstado(agregarTarea(gestor, nuevaTarea));
 
     console.log("\n\n!!TAREA AGREGADA EXITOSAMENTE!!");
     await input("\nPresione Enter para continuar...");
   }
 
   // ==================
-  // MOSTRAR ESTADÍSTICAS
+  // ESTADÍSTICAS (usa función pura)
   // ==================
   async mostrarEstadisticas(): Promise<void> {
     console.clear();
     console.log("\nESTADISTICAS DEL SISTEMA\n");
 
-    const stats = this.gestor.obtenerEstadisticas();
+    const gestor = this.getEstado();
+    const stats = calcularEstadisticas(gestor);
 
-    console.log(`Total de tareas:        ${stats.total}`);
+    console.log(`Total de tareas:       [${stats.total}]`);
     console.log(`Pendientes:             ${stats.pendientes}`);
     console.log(`En curso:               ${stats.enCurso}`);
     console.log(`Terminadas:             ${stats.terminadas}`);
     console.log(`Canceladas:             ${stats.canceladas}`);
 
     await input("\nPresione Enter para continuar...");
-  }
-
-  // ==================
-  // FUNCIONES AUXILIARES
-  // ==================
-  private obtenerTextoEstado(estado: number): string {
-    switch (estado) {
-      case EstadoTarea.PENDIENTE: return "Pendiente";
-      case EstadoTarea.EN_CURSO: return "En Curso";
-      case EstadoTarea.TERMINADA: return "Terminada";
-      case EstadoTarea.CANCELADA: return "Cancelada";
-      default: return "Desconocido";
-    }
-  }
-
-  private formatearFecha(timestamp: number): string {
-    return new Date(timestamp).toLocaleString('es-AR', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   }
 }

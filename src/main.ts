@@ -1,22 +1,28 @@
 // =======================
-// PUNTO DE ENTRADA DEL PROGRAMA
+// PUNTO DE ENTRADA (Adaptado a Funcional)
 // =======================
 
 import { input, close } from '../lib/nodeImperativo';
-import { GestorTareas } from './gestorTareas';
+import { crearGestorVacio, EstadoGestor } from './gestorTareas';
 import { InterfazUsuario } from './interfazUsuario';
 
-// Función Principal
 async function main(): Promise<void> {
-  // Crear instancias (ENCAPSULAMIENTO)
-  const gestor = new GestorTareas();
-  const interfaz = new InterfazUsuario(gestor);
+  // Estado inmutable - usamos let solo para reasignar la referencia
+  let estado = crearGestorVacio();
+  
+  // Funciones para acceder/actualizar el estado
+  const getEstado = () => estado;
+  const setEstado = (nuevoEstado: EstadoGestor) => {
+    estado = nuevoEstado;
+  };
+  
+  // Crear interfaz pasándole las funciones de acceso
+  const interfaz = new InterfazUsuario(getEstado, setEstado);
   
   let opcion: string;
 
   console.clear();
 
-  // Bucle principal del programa
   do {
     interfaz.mostrarMenuPrincipal();
     opcion = await input("Opcion: ");
@@ -63,7 +69,6 @@ async function main(): Promise<void> {
   close();
 }
 
-// Ejecutar el programa
 main().catch((error) => {
   console.error("Error fatal:", error);
   close();

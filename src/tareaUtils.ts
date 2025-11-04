@@ -1,4 +1,4 @@
-import { EstadoTarea, DificultadTarea } from './types';
+       import { EstadoTarea, DificultadTarea } from './types';
 
 // Obtener Estado
 export function obtenerEstado(estado: number): string {

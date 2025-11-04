@@ -1,171 +1,122 @@
 // =======================
-// GESTOR DE TAREAS 
+// GESTOR DE TAREAS FUNCIONAL
 // =======================
 
-import { 
-  TareaBase, 
-  TareaSimple, 
-  TareaConFechaLimite, 
-  TareaRecurrente, 
-  EstadoTarea,
-  PrioridadTarea 
-} from './types';
+import { Tarea, EstadoTarea, estaCompletada } from './types';
 
-// ABSTRACCIÓN: Interface para estrategias de filtrado (Patrón Strategy)
-interface IEstrategiaFiltrado {
-  filtrar(tareas: TareaBase[]): TareaBase[];
-}
+// Estado de la aplicación (inmutable)
+export type EstadoGestor = Readonly<{
+  tareas: ReadonlyArray<Tarea>;
+}>;
 
-// POLIMORFISMO: Diferentes estrategias de filtrado
+// ====================================
+// FUNCIONES PURAS DEL GESTOR
+// ====================================
 
-class FiltrarPorEstado implements IEstrategiaFiltrado {
-  constructor(private estado: EstadoTarea) {}
+// Crear estado inicial
+export const crearGestorVacio = (): EstadoGestor =>
+  Object.freeze({ tareas: Object.freeze([]) });
+
+// Agregar tarea (retorna NUEVO estado)
+export const agregarTarea = (gestor: EstadoGestor, tarea: Tarea): EstadoGestor =>
+  Object.freeze({
+    ...gestor,
+    tareas: Object.freeze([...gestor.tareas, tarea])
+  });
+
+// Eliminar tarea por índice (retorna NUEVO estado)
+export const eliminarTarea = (gestor: EstadoGestor, indice: number): EstadoGestor => {
+  if (indice < 0 || indice >= gestor.tareas.length) return gestor;
   
-  filtrar(tareas: TareaBase[]): TareaBase[] {
-    return tareas.filter(t => t.estado === this.estado);
-  }
-}
+  return Object.freeze({
+    ...gestor,
+    tareas: Object.freeze(gestor.tareas.filter((_, i) => i !== indice))
+  });
+};
 
-class FiltrarPorPrioridad implements IEstrategiaFiltrado {
-  constructor(private prioridad: PrioridadTarea) {}
+// Actualizar tarea por índice (retorna NUEVO estado)
+export const actualizarTarea = (
+  gestor: EstadoGestor,
+  indice: number,
+  tareaActualizada: Tarea
+): EstadoGestor => {
+  if (indice < 0 || indice >= gestor.tareas.length) return gestor;
   
-  filtrar(tareas: TareaBase[]): TareaBase[] {
-    return tareas.filter(t => t.calcularPrioridad() === this.prioridad);
-  }
-}
+  return Object.freeze({
+    ...gestor,
+    tareas: Object.freeze(
+      gestor.tareas.map((tarea, i) => i === indice ? tareaActualizada : tarea)
+    )
+  });
+};
 
-class FiltrarTareasVencidas implements IEstrategiaFiltrado {
-  filtrar(tareas: TareaBase[]): TareaBase[] {
-    return tareas.filter(t => {
-      if (t instanceof TareaConFechaLimite) {
-        return t.estaVencida();
+// Obtener tarea por índice
+export const obtenerTarea = (gestor: EstadoGestor, indice: number): Tarea | undefined =>
+  gestor.tareas[indice];
+
+// Obtener todas las tareas
+export const obtenerTodas = (gestor: EstadoGestor): ReadonlyArray<Tarea> =>
+  gestor.tareas;
+
+// Contar tareas
+export const contarTareas = (gestor: EstadoGestor): number =>
+  gestor.tareas.length;
+
+// ====================================
+// FUNCIONES DE FILTRADO (PURAS)
+// ====================================
+
+// Filtrar por estado
+export const filtrarPorEstado = (
+  gestor: EstadoGestor,
+  estado: EstadoTarea
+): ReadonlyArray<Tarea> =>
+  gestor.tareas.filter(t => t.estado === estado);
+
+// Buscar por título
+export const buscarPorTitulo = (
+  gestor: EstadoGestor,
+  busqueda: string
+): ReadonlyArray<Tarea> =>
+  gestor.tareas.filter(t => 
+    t.titulo.toLowerCase().includes(busqueda.toLowerCase())
+  );
+
+// ====================================
+// ESTADÍSTICAS (FUNCIÓN PURA)
+// ====================================
+
+export const calcularEstadisticas = (gestor: EstadoGestor) => {
+  const stats = gestor.tareas.reduce(
+    (acc, tarea) => {
+      switch (tarea.estado) {
+        case EstadoTarea.PENDIENTE:
+          return { ...acc, pendientes: acc.pendientes + 1 };
+        case EstadoTarea.EN_CURSO:
+          return { ...acc, enCurso: acc.enCurso + 1 };
+        case EstadoTarea.TERMINADA:
+          return { ...acc, terminadas: acc.terminadas + 1 };
+        case EstadoTarea.CANCELADA:
+          return { ...acc, canceladas: acc.canceladas + 1 };
+        default:
+          return acc;
       }
-      return false;
-    });
-  }
-}
-
-class FiltrarTareasRecurrentes implements IEstrategiaFiltrado {
-  filtrar(tareas: TareaBase[]): TareaBase[] {
-    return tareas.filter(t => t instanceof TareaRecurrente);
-  }
-}
-
-class FiltrarTodasLasTareas implements IEstrategiaFiltrado {
-  filtrar(tareas: TareaBase[]): TareaBase[] {
-    return tareas;
-  }
-}
-
-// ========================================
-// CLASE PRINCIPAL: GESTOR DE TAREAS
-// ========================================
-export class GestorTareas {
-  private tareas: TareaBase[] = [];
-  private estrategiaActual: IEstrategiaFiltrado | null = null;
-
-  // POLIMORFISMO: Agregar cualquier tipo de tarea
-  agregarTarea(tarea: TareaBase): void {
-    this.tareas.push(tarea);
-  }
-
-  // Eliminar tarea
-  eliminarTarea(indice: number): boolean {
-    if (indice >= 0 && indice < this.tareas.length) {
-      this.tareas.splice(indice, 1);
-      return true;
+    },
+    {
+      total: gestor.tareas.length,
+      pendientes: 0,
+      enCurso: 0,
+      terminadas: 0,
+      canceladas: 0
     }
-    return false;
-  }
+  );
+  
+  return Object.freeze(stats);
+};
 
-  // Obtener todas las tareas
-  obtenerTodas(): TareaBase[] {
-    return [...this.tareas]; // Retorna copia para proteger el array original
-  }
-
-  // Obtener tarea por índice
-  obtenerTarea(indice: number): TareaBase | undefined {
-    if (indice >= 0 && indice < this.tareas.length) {
-      return this.tareas[indice];
-    }
-    return undefined;
-  }
-
-  // Obtener número de tareas
-  obtenerNumTareas(): number {
-    return this.tareas.length;
-  }
-
-  // Actualizar tarea
-  actualizarTarea(indice: number, tarea: TareaBase): boolean {
-    if (indice >= 0 && indice < this.tareas.length) {
-      this.tareas[indice] = tarea;
-      return true;
-    }
-    return false;
-  }
-
-  // Buscar tareas por título
-  buscarPorTitulo(busqueda: string): TareaBase[] {
-    return this.tareas.filter(t => 
-      t.titulo.toLowerCase().includes(busqueda.toLowerCase())
-    );
-  }
-
-  // Estrategia de filtrado
-  establecerEstrategiaFiltrado(estrategia: IEstrategiaFiltrado): void {
-    this.estrategiaActual = estrategia;
-  }
-
-  // Filtrar con la estrategia actual
-  filtrarConEstrategia(): TareaBase[] {
-    if (this.estrategiaActual) {
-      return this.estrategiaActual.filtrar(this.tareas);
-    }
-    return this.tareas;
-  }
-
-  // Métodos de filtrado específicos
-  filtrarPorEstado(estado: EstadoTarea): TareaBase[] {
-    this.establecerEstrategiaFiltrado(new FiltrarPorEstado(estado));
-    return this.filtrarConEstrategia();
-  }
-
-  obtenerTodasLasTareas(): TareaBase[] {
-    this.establecerEstrategiaFiltrado(new FiltrarTodasLasTareas());
-    return this.filtrarConEstrategia();
-  }
-
-
-  // Obtener estadísticas
-  obtenerEstadisticas(): {
-    total: number;
-    pendientes: number;
-    enCurso: number;
-    terminadas: number;
-    canceladas: number;
-  } {
-    return {
-      total: this.tareas.length,
-      pendientes: this.tareas.filter(t => t.estado === EstadoTarea.PENDIENTE).length,
-      enCurso: this.tareas.filter(t => t.estado === EstadoTarea.EN_CURSO).length,
-      terminadas: this.tareas.filter(t => t.estado === EstadoTarea.TERMINADA).length,
-      canceladas: this.tareas.filter(t => t.estado === EstadoTarea.CANCELADA).length,
-    };
-  }
-
-  // Mostrar resumen de todas las tareas (POLIMORFISMO en acción)
-  mostrarResumenTodas(): void {
-    console.log("\n=== RESUMEN DE TAREAS ===\n");
-    this.tareas.forEach((tarea, index) => {
-      console.log(`[${index + 1}] ${tarea.mostrarResumen()}`);
-    });
-  }
-
-  // Limpiar tareas completadas
-  limpiarTareasCompletadas(): number {
-    const cantidadInicial = this.tareas.length;
-    this.tareas = this.tareas.filter(t => !t.estaCompletada());
-    return cantidadInicial - this.tareas.length;
-  }
-}
+// Limpiar tareas completadas (retorna NUEVO estado)
+export const limpiarCompletadas = (gestor: EstadoGestor): EstadoGestor =>
+  Object.freeze({
+    ...gestor,
+    tareas: Object.freeze(gestor.tareas.filter(t => !estaCompletada(t)))
+  });

@@ -1,18 +1,25 @@
-📋 Sistema de Gestión de Tareas
-Sistema de gestión de tareas desarrollado en TypeScript utilizando Programación Orientada a Objetos (OOP) y ejecutado en Node.js.
-🎯 Características
+📋 Sistema de Gestión de Tareas..
+Sistema de gestión de tareas desarrollado en TypeScript utilizando Programación Funcional y ejecutado en Node.js.
 
-✅ Crear y gestionar tareas con título, descripción, estado y dificultad
+🎯 Características
+✅ Funcionalidades Principales
+
+✨ Crear y gestionar tareas con título, descripción, estado y dificultad
 📊 Ver tareas filtradas por estado (Pendientes, En Curso, Terminadas, Canceladas)
 🔍 Buscar tareas por título
-✏️ Editar tareas existentes
+✏️ Editar tareas existentes de forma inmutable
 📈 Visualizar estadísticas del sistema
-💾 Persistencia de datos durante la ejecución
+💾 Gestión de estado funcional durante la ejecución
 
-🏗️ Arquitectura
-El proyecto implementa principios de Programación Orientada a Objetos:
+🧩 Paradigma Funcional Implementado
 
-Encapsulamiento: Propiedades privadas con getters y setters
-Herencia: Clases que extienden de TareaBase
-Polimorfismo: Implementación de métodos abstractos
-Abstracción: Interfaces y clases abstracta
+Funciones Puras: Sin efectos secundarios ni mutaciones
+Inmutabilidad: Uso de const y Object.freeze()
+Sin Bucles Tradicionales: Uso de map, filter, reduce.
+
+🤝 Contribuciones
+Este proyecto fue desarrollado como trabajo práctico para la materia Paradigmas de Programación.
+
+Nombre: [Lucila Quiroga]
+Universidad: [Unvime]
+Año: 2025
